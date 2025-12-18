@@ -1,0 +1,26 @@
+spring:
+  application:
+    name: coin-cache-study
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 3000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 2
+
+# 캐시 설정
+cache:
+  quotes:
+    base-ttl-seconds: 60
+    ttl-jitter-seconds: 10
+    lock-timeout-ms: 100
+    null-cache-ttl-seconds: 30
+
+logging:
+  level:
+    com.example.coincache: DEBUG
