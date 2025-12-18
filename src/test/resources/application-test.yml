@@ -1,0 +1,16 @@
+spring:
+  data:
+    redis:
+      host: localhost
+      port: 16379  # 테스트용 포트
+
+cache:
+  quotes:
+    base-ttl-seconds: 5
+    ttl-jitter-seconds: 2
+    lock-timeout-ms: 100
+    null-cache-ttl-seconds: 3
+
+logging:
+  level:
+    com.example.coincache: DEBUG
