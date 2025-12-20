@@ -3,6 +3,7 @@ package com.example.coincache;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 import redis.embedded.RedisServer;
@@ -14,6 +15,7 @@ import java.io.IOException;
  */
 @Profile("test")
 @Configuration
+@ConditionalOnProperty(name = "embedded.redis.enabled", havingValue = "true")
 public class EmbeddedRedisConfig {
 
     @Value("${spring.data.redis.port}")
