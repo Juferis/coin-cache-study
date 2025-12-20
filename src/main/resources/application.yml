@@ -20,6 +20,17 @@ cache:
     ttl-jitter-seconds: 10
     lock-timeout-ms: 100
     null-cache-ttl-seconds: 30
+    logical-expire-seconds: 60
+    stale-ttl-buffer-seconds: 30
+    refresh-threads: 4
+    single-flight-wait-ms: 500
+
+repository:
+  latency-ms: 50
+
+embedded:
+  redis:
+    enabled: false
 
 logging:
   level:

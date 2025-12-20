@@ -28,4 +28,24 @@ public class CacheProperties {
      * Null 캐시 TTL (초) - Penetration 방지
      */
     private int nullCacheTtlSeconds = 30;
+
+    /**
+     * 논리적 만료 시간 (초) - Stale-While-Revalidate
+     */
+    private int logicalExpireSeconds = 60;
+
+    /**
+     * 논리 만료용 TTL 버퍼 (초)
+     */
+    private int staleTtlBufferSeconds = 30;
+
+    /**
+     * 비동기 갱신 스레드 수
+     */
+    private int refreshThreads = 4;
+
+    /**
+     * SingleFlight 대기 시간 (밀리초)
+     */
+    private int singleFlightWaitMs = 500;
 }
