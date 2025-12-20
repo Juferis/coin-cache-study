@@ -13,19 +13,28 @@
 ## 🚨 다루는 캐싱 이슈
 
 ### 1. Cache Stampede (Thundering Herd)
-- **상황**: 캐시 만료 시점에 동시 다발적 요청 → 원천 DB/API 과부하
-- **대응**: 분산 락 (SET NX PX) 으로 갱신 요청 단일화
-- **테스트**: 50개 동시 요청 시 원천 조회 횟수 검증
+- **상황**: 핫 키 만료 시점에 동시 요청이 몰림 → 원천 DB/API 과부하
+- **대응**:
+  - 분산 락 (SET NX PX)으로 갱신 단일화
+  - SingleFlight로 인스턴스 내부 중복 요청 합치기
+  - Logical Expire + SWR로 stale 응답 제공 + 백그라운드 갱신
+- **테스트**: 대량 동시 요청에서 원천 조회 횟수 제한
 
-### 2. Cache Avalanche  
+### 2. Cache Avalanche
 - **상황**: 다수 키가 동시에 만료 → 순간적 원천 트래픽 폭증
-- **대응**: TTL Jitter (랜덤 TTL) 적용으로 만료 시점 분산
-- **테스트**: 여러 키의 TTL이 분산되었는지 확인
+- **대응**:
+  - 랜덤 TTL Jitter로 만료 시점 분산
+  - 해시 기반 Jitter로 예측 가능한 분산
+  - TTL 제거 + Push 갱신(이벤트 기반)으로 만료 폭발 제거
+- **테스트**: TTL 분산 여부/만료 없음(-1) 여부 확인
 
 ### 3. Cache Penetration
 - **상황**: 존재하지 않는 키 반복 조회 → 캐시 무력화, 원천 직접 호출
-- **대응**: 화이트리스트 검증 + Null Cache 저장
-- **테스트**: 잘못된 키 요청 시 원천 미조회 확인
+- **대응**:
+  - 화이트리스트 검증
+  - Null Cache(negative cache)
+  - Bloom Filter로 사전 차단
+- **테스트**: 잘못된 키 요청 시 원천 미조회/오탐 수준 확인
 
 ---
 
@@ -33,17 +42,28 @@
 
 ```
 src/main/java/com/example/coincache/
+├── cache/
+│   ├── BloomFilter.java         # Penetration 방지용 Bloom Filter
+│   └── CacheValue.java          # Logical Expire 캐시 래퍼
 ├── config/
-│   ├── RedisConfig.java        # Redis 설정
-│   └── CacheProperties.java    # 캐시 설정값 (TTL, Jitter 등)
+│   ├── RedisConfig.java         # Redis 설정
+│   └── CacheProperties.java     # 캐시 설정값 (TTL, Jitter 등)
 ├── domain/
-│   └── CoinQuote.java          # 코인 시세 도메인
+│   └── CoinQuote.java           # 코인 시세 도메인
 ├── repository/
 │   └── InMemoryCoinQuoteRepository.java  # 원천 데이터 (테스트용)
 ├── service/
-│   └── QuoteCacheService.java  # ⭐ 캐싱 전략 핵심 로직
+│   └── QuoteCacheService.java   # 캐싱 전략 핵심 로직
 └── controller/
-    └── QuoteController.java    # REST API
+    └── QuoteController.java     # REST API
+
+src/test/java/com/example/coincache/
+├── support/
+│   └── CacheTestSupport.java
+└── service/
+    ├── CacheStampedeTest.java
+    ├── CacheAvalancheTest.java
+    └── CachePenetrationTest.java
 ```
 
 ---
@@ -54,14 +74,17 @@ src/main/java/com/example/coincache/
 ./gradlew test
 ```
 
+대용량 크기 조절(기본 10,000):
+```bash
+./gradlew test -Dtest.data.size=5000
+```
+
 ### 테스트 시나리오
-| 테스트 | 검증 내용 |
-|--------|-----------|
-| Cache-Aside 기본 | Cache Hit/Miss 동작 확인 |
-| Stampede 방지 | 동시 요청 시 원천 조회 최소화 |
-| Penetration 방지 | 잘못된 키 차단 + Null 캐시 |
-| Avalanche 방지 | TTL 분산 확인 |
-| TTL 만료 | 만료 후 재조회 동작 |
+| 테스트            | 검증 내용                                |
+|----------------|--------------------------------------|
+| Stampede 방지    | 분산 락/SingleFlight/Logical Expire 비교  |
+| Penetration 방지 | 화이트리스트/Null Cache/Bloom Filter 비교    |
+| Avalanche 방지   | 고정 TTL vs 랜덤/해시 Jitter vs TTL 없음     |
 
 ---
 
@@ -70,8 +93,8 @@ src/main/java/com/example/coincache/
 - Java 17
 - Spring Boot 3.2
 - Spring Data Redis (Lettuce)
-- Embedded Redis (테스트용)
-- JUnit 5 + Awaitility
+- Local Redis (테스트 실행 시 필요)
+- JUnit 5
 
 ---
 
@@ -80,10 +103,19 @@ src/main/java/com/example/coincache/
 ```yaml
 cache:
   quotes:
-    base-ttl-seconds: 60      # 기본 TTL
-    ttl-jitter-seconds: 10    # TTL 랜덤 범위 (Avalanche 방지)
-    lock-timeout-ms: 100      # 분산 락 타임아웃 (Stampede 방지)
-    null-cache-ttl-seconds: 30 # Null 캐시 TTL (Penetration 방지)
-```
+    base-ttl-seconds: 60        # 기본 TTL
+    ttl-jitter-seconds: 10      # TTL 랜덤 범위 (Avalanche 방지)
+    lock-timeout-ms: 100        # 분산 락 타임아웃 (Stampede 방지)
+    null-cache-ttl-seconds: 30  # Null 캐시 TTL (Penetration 방지)
+    logical-expire-seconds: 60  # 논리 만료 (SWR)
+    stale-ttl-buffer-seconds: 30 # 논리 만료 버퍼
+    refresh-threads: 4          # 논리 만료 갱신 스레드 수
+    single-flight-wait-ms: 500  # SingleFlight 대기 시간
 
----
+repository:
+  latency-ms: 50                # 원천 조회 지연(시뮬레이션)
+
+embedded:
+  redis:
+    enabled: false              # 로컬 Redis 사용
+```
