@@ -1,0 +1,54 @@
+version: "3.8"
+
+services:
+  redis-master:
+    image: redis:7.2-alpine
+    container_name: redis-master
+    command: ["redis-server", "/usr/local/etc/redis/redis-master.conf"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./redis-master.conf:/usr/local/etc/redis/redis-master.conf:ro
+
+  redis-replica:
+    image: redis:7.2-alpine
+    container_name: redis-replica
+    command: ["redis-server", "/usr/local/etc/redis/redis-replica.conf"]
+    depends_on:
+      - redis-master
+    ports:
+      - "6380:6379"
+    volumes:
+      - ./redis-replica.conf:/usr/local/etc/redis/redis-replica.conf:ro
+
+  sentinel-1:
+    image: redis:7.2-alpine
+    container_name: sentinel-1
+    command: ["sh", "-c", "until nc -z host.docker.internal 6379; do echo 'waiting for master...'; sleep 1; done; cp /usr/local/etc/redis/sentinel.conf /tmp/sentinel.conf && redis-server /tmp/sentinel.conf --sentinel"]
+    depends_on:
+      - redis-master
+      - redis-replica
+    ports:
+      - "26379:26379"
+    volumes:
+      - ./sentinel.conf:/usr/local/etc/redis/sentinel.conf:ro
+
+  sentinel-2:
+    image: redis:7.2-alpine
+    container_name: sentinel-2
+    command: ["sh", "-c", "until nc -z host.docker.internal 6379; do echo 'waiting for master...'; sleep 1; done; cp /usr/local/etc/redis/sentinel.conf /tmp/sentinel.conf && redis-server /tmp/sentinel.conf --sentinel"]
+    depends_on:
+      - redis-master
+      - redis-replica
+    volumes:
+      - ./sentinel.conf:/usr/local/etc/redis/sentinel.conf:ro
+
+  sentinel-3:
+    image: redis:7.2-alpine
+    container_name: sentinel-3
+    command: ["sh", "-c", "until nc -z host.docker.internal 6379; do echo 'waiting for master...'; sleep 1; done; cp /usr/local/etc/redis/sentinel.conf /tmp/sentinel.conf && redis-server /tmp/sentinel.conf --sentinel"]
+    depends_on:
+      - redis-master
+      - redis-replica
+    volumes:
+      - ./sentinel.conf:/usr/local/etc/redis/sentinel.conf:ro

@@ -1,0 +1,35 @@
+spring:
+  data:
+    redis:
+      sentinel:
+        master: mymaster
+        nodes:
+          - localhost:26379
+      timeout: 3000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 2
+
+cache:
+  quotes:
+    base-ttl-seconds: 5
+    ttl-jitter-seconds: 2
+    lock-timeout-ms: 100
+    null-cache-ttl-seconds: 3
+    logical-expire-seconds: 2
+    stale-ttl-buffer-seconds: 5
+    refresh-threads: 4
+    single-flight-wait-ms: 1000
+
+repository:
+  latency-ms: 0
+
+embedded:
+  redis:
+    enabled: false
+
+logging:
+  level:
+    com.example.coincache: INFO
